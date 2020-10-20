@@ -25,6 +25,14 @@ contract FunnyAuction is ERC20("Auction Liquidity Pool Token", "ALT"), Ownable {
     mapping(address => uint256) bidMap;
     mapping(address => uint256) assetMap;
 
+    event Offer(address indexed user, uint value);
+
+    event Claim(address indexed user, uint value);
+
+    event Withdraw(address indexed user, uint value);
+
+    event GameFinish(address indexed top1, address indexed top2, address prize);
+
     /// @dev get current game status
     /// 0:idle, 1:coldDown, 2:bidding
     function getStatus() public view returns (uint256) {
@@ -73,6 +81,9 @@ contract FunnyAuction is ERC20("Auction Liquidity Pool Token", "ALT"), Ownable {
             }
             // clear players
             delete currentPlayers;
+            emit GameFinish(topPlayer, secondPlayer, currentGoodValue);
+            topPlayer = address(0);
+            secondPlayer = address(0);
             // calc currentGoodValue
             currentGoodValue = 0;
             currentGoodValue = calcGoodsValue();
@@ -84,19 +95,20 @@ contract FunnyAuction is ERC20("Auction Liquidity Pool Token", "ALT"), Ownable {
         // biding
         if (status == 2) {
             require(value - currentBidPrice >= 1 ether, "Price too low");
+            uint pay = value - bidMap[msg.sender];
             // use wan from assets
-            if (assetMap[msg.sender] >= value) {
-                assetMap[msg.sender] = assetMap[msg.sender].sub(value);
+            if (assetMap[msg.sender] >= pay) {
+                assetMap[msg.sender] = assetMap[msg.sender].sub(pay);
             } else {
-                if (msg.value == value) {
+                if (msg.value == pay) {
                     // nothing to do.
-                } else if (msg.value > value) {
+                } else if (msg.value > pay) {
                     assetMap[msg.sender] = assetMap[msg.sender].add(
-                        msg.value.sub(value)
+                        msg.value.sub(pay)
                     );
                 } else {
                     assetMap[msg.sender] = assetMap[msg.sender].sub(
-                        value.sub(msg.value)
+                        pay.sub(msg.value)
                     );
                 }
             }
@@ -105,11 +117,12 @@ contract FunnyAuction is ERC20("Auction Liquidity Pool Token", "ALT"), Ownable {
                 currentPlayers.push(msg.sender);
             }
 
-            bidMap[msg.sender] = bidMap[msg.sender].add(value);
+            bidMap[msg.sender] = bidMap[msg.sender].add(pay);
             currentBidPrice = bidMap[msg.sender];
             secondPlayer = topPlayer;
             topPlayer = msg.sender;
             lastOfferBlock = block.number;
+            emit Offer(msg.sender, value);
         }
     }
 
@@ -163,6 +176,7 @@ contract FunnyAuction is ERC20("Auction Liquidity Pool Token", "ALT"), Ownable {
         uint amount = assetMap[msg.sender];
         assetMap[msg.sender] = 0;
         msg.sender.transfer(amount);
+        emit Claim(msg.sender, amount);
     }
 
     /// @dev deposit wans get ALT (Auction Liquidity Pool Token)
@@ -181,7 +195,7 @@ contract FunnyAuction is ERC20("Auction Liquidity Pool Token", "ALT"), Ownable {
         liquidityPool = liquidityPool.sub(payAmount);
         _burn(msg.sender, altBalance);
         msg.sender.transfer(payAmount);
-        emit Transfer(address(this), msg.sender, payAmount);
+        emit Withdraw(msg.sender, payAmount);
     }
 
     function config(

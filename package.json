@@ -5,6 +5,7 @@
   "license": "MIT",
   "dependencies": {
     "@openzeppelin/contracts": "^3.2.0",
+    "@openzeppelin/test-helpers": "^0.5.7",
     "truffle": "^5.1.49"
   },
   "directories": {
