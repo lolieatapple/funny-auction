@@ -31,7 +31,7 @@ contract FunnyAuction is ERC20("Auction Liquidity Pool Token", "ALT"), Ownable {
 
     event Withdraw(address indexed user, uint value);
 
-    event GameFinish(address indexed top1, address indexed top2, address prize);
+    event GameFinish(address indexed top1, address indexed top2, uint prize);
 
     /// @dev get current game status
     /// 0:idle, 1:coldDown, 2:bidding
@@ -54,23 +54,23 @@ contract FunnyAuction is ERC20("Auction Liquidity Pool Token", "ALT"), Ownable {
         require(status != 1, "It is colding down");
         require(value % 1 ether == 0, "Must input integer");
         require(value > 0, "Must larger than 0");
-        require(assetMap[msg.sender] + msg.value >= value, "Assets not enough");
+        require(assetMap[msg.sender] + bidMap[msg.sender] + msg.value >= value, "Assets not enough");
 
         // last round finish
         if (status == 0) {
             for (uint256 i = 0; i < currentPlayers.length; i++) {
                 if (currentPlayers[i] == topPlayer) {
-                    assetMap[currentPlayers[i]] = assetMap[currentPlayers[i]]
+                    assetMap[topPlayer] = assetMap[topPlayer]
                         .add(currentGoodValue);
                     liquidityPool = liquidityPool.sub(currentGoodValue);
-                    liquidityPool = liquidityPool.add(bidMap[currentPlayers[i]]);
-                    bidMap[currentPlayers[i]] = 0;
+                    liquidityPool = liquidityPool.add(bidMap[topPlayer]);
+                    bidMap[topPlayer] = 0;
                     continue;
                 }
 
                 if (currentPlayers[i] == secondPlayer) {
-                    liquidityPool = liquidityPool.add(bidMap[currentPlayers[i]]);
-                    bidMap[currentPlayers[i]] = 0;
+                    liquidityPool = liquidityPool.add(bidMap[secondPlayer]);
+                    bidMap[secondPlayer] = 0;
                     continue;
                 }
 
@@ -95,6 +95,7 @@ contract FunnyAuction is ERC20("Auction Liquidity Pool Token", "ALT"), Ownable {
         // biding
         if (status == 2) {
             require(value - currentBidPrice >= 1 ether, "Price too low");
+            require(value > bidMap[msg.sender], "New price must larger than old");
             uint pay = value - bidMap[msg.sender];
             // use wan from assets
             if (assetMap[msg.sender] >= pay) {
@@ -128,6 +129,10 @@ contract FunnyAuction is ERC20("Auction Liquidity Pool Token", "ALT"), Ownable {
 
     function calcGoodsValue() public view returns (uint) {
         uint value = (liquidityPool - currentGoodValue) / percent;
+        if (value < 1 ether) {
+            return 0;
+        }
+
         if (value < 2 ether) {
             return 1 ether;
         }
