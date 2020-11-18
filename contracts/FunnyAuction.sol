@@ -85,7 +85,6 @@ contract FunnyAuction is ERC20("Auction Liquidity Pool Token", "ALT"), Ownable {
             topPlayer = address(0);
             secondPlayer = address(0);
             // calc currentGoodValue
-            currentGoodValue = 0;
             currentGoodValue = calcGoodsValue();
             currentBidPrice = 0;
             require( value <= currentGoodValue / 2, "first bid must less then 1/2 good value");
